@@ -51,10 +51,13 @@ class MessageAdapter(
 
         if (msg.imageUrl.isNotEmpty()) {
             holder.ivImage?.visibility = View.VISIBLE
-            holder.ivImage?.let {
-                Glide.with(it.context)
-                    .load(msg.imageUrl)
-                    .into(it)
+            holder.ivImage?.let { iv ->
+                if (msg.imageUrl.startsWith("data:image")) {
+                    val bytes = android.util.Base64.decode(msg.imageUrl.substringAfter("base64,"), android.util.Base64.DEFAULT)
+                    Glide.with(iv.context).load(bytes).into(iv)
+                } else {
+                    Glide.with(iv.context).load(msg.imageUrl).into(iv)
+                }
             }
         } else {
             holder.ivImage?.visibility = View.GONE

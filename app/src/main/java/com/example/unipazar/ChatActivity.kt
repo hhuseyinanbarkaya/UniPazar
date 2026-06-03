@@ -79,7 +79,11 @@ class ChatActivity : AppCompatActivity() {
             } else {
                 Glide.with(this).load(otherAvatar).circleCrop().into(ivAvatar)
             }
+        } else {
+            val fallbackAvatar = "https://ui-avatars.com/api/?name=${otherName.replace(" ", "+")}&background=random"
+            Glide.with(this).load(fallbackAvatar).circleCrop().into(ivAvatar)
         }
+        
         if (conversation.adImageUrl.isNotEmpty()) {
             if (conversation.adImageUrl.startsWith("data:image")) {
                 val bytes = android.util.Base64.decode(conversation.adImageUrl.substringAfter("base64,"), android.util.Base64.DEFAULT)
@@ -87,6 +91,9 @@ class ChatActivity : AppCompatActivity() {
             } else {
                 Glide.with(this).load(conversation.adImageUrl).centerCrop().into(ivAdThumb)
             }
+        } else {
+            val fallbackAd = "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?w=600&h=600&fit=crop"
+            Glide.with(this).load(fallbackAd).centerCrop().into(ivAdThumb)
         }
 
         // Back button
@@ -171,16 +178,34 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun uploadImageAndSend(uri: Uri, senderId: String) {
-        val storageRef = FirebaseStorage.getInstance().reference.child("chat_images/${UUID.randomUUID()}.jpg")
-        Toast.makeText(this, "Fotoğraf yükleniyor...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Fotoğraf hazırlanıyor...", Toast.LENGTH_SHORT).show()
+        val rvMessages = findViewById<RecyclerView>(R.id.rvMessages)
         
-        storageRef.putFile(uri).addOnSuccessListener {
-            storageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
-                val rvMessages = findViewById<RecyclerView>(R.id.rvMessages)
-                sendMessage(senderId, "📷 Fotoğraf", downloadUrl.toString(), rvMessages)
+        try {
+            val bmp = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                val source = android.graphics.ImageDecoder.createSource(contentResolver, uri)
+                android.graphics.ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                    decoder.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                android.provider.MediaStore.Images.Media.getBitmap(contentResolver, uri)
             }
-        }.addOnFailureListener { e ->
-            Toast.makeText(this, "Fotoğraf yüklenemedi: ${e.message}", Toast.LENGTH_SHORT).show()
+
+            // Scale down to max 600px wide for chat
+            val maxW = 600
+            val scaled = if (bmp.width > maxW) {
+                val ratio = maxW.toFloat() / bmp.width
+                android.graphics.Bitmap.createScaledBitmap(bmp, maxW, (bmp.height * ratio).toInt(), true)
+            } else bmp
+
+            val baos = java.io.ByteArrayOutputStream()
+            scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 60, baos)
+            val base64Str = "data:image/jpeg;base64," + android.util.Base64.encodeToString(baos.toByteArray(), android.util.Base64.NO_WRAP)
+
+            sendMessage(senderId, "", base64Str, rvMessages)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Fotoğraf hazırlanamadı: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 

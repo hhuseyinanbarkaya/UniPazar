@@ -56,7 +56,8 @@ class ConversationAdapter(
                     .load(otherAvatar).circleCrop().into(holder.ivAvatar)
             }
         } else {
-            holder.ivAvatar.setImageResource(android.R.drawable.sym_def_app_icon)
+            val fallbackAvatar = "https://ui-avatars.com/api/?name=${otherName.replace(" ", "+")}&background=random"
+            Glide.with(holder.itemView.context).load(fallbackAvatar).circleCrop().into(holder.ivAvatar)
         }
 
         // Ad thumbnail
@@ -69,7 +70,8 @@ class ConversationAdapter(
                     .load(conv.adImageUrl).centerCrop().into(holder.ivAdThumb)
             }
         } else {
-            holder.ivAdThumb.setImageResource(R.drawable.placeholder_image)
+            val fallbackAd = "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?w=600&h=600&fit=crop"
+            Glide.with(holder.itemView.context).load(fallbackAd).centerCrop().into(holder.ivAdThumb)
         }
 
         // Unread badge
