@@ -1,0 +1,495 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_main"
+    tools:context=".AdDetailActivity">
+
+    <!-- ══════════════════════════════ -->
+    <!-- Floating Header (over images) -->
+    <!-- ══════════════════════════════ -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/detailHeader"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:paddingHorizontal="12dp"
+        android:elevation="4dp"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Back button with dashed border -->
+        <LinearLayout
+            android:id="@+id/btnBack"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:gravity="center"
+            android:background="@drawable/bg_detail_header_btn"
+            android:clickable="true"
+            android:focusable="true"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_chevron_right"
+                android:rotation="180"
+                app:tint="@color/unipazar_orange"/>
+        </LinearLayout>
+
+        <!-- Title -->
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="İlan Detayı"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:gravity="center"
+            app:layout_constraintStart_toEndOf="@id/btnBack"
+            app:layout_constraintEnd_toStartOf="@id/headerActions"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <!-- Share + Favorite buttons -->
+        <LinearLayout
+            android:id="@+id/headerActions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <ImageView
+                android:id="@+id/btnShare"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_share"
+                android:padding="8dp"
+                android:scaleType="fitCenter"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                app:tint="@color/text_dark_gray"/>
+
+            <ImageView
+                android:id="@+id/btnFavorite"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_favorite"
+                android:padding="8dp"
+                android:scaleType="fitCenter"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:layout_marginStart="4dp"
+                app:tint="@color/text_dark_gray"/>
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- ══════════════════════════════════════ -->
+    <!-- Sticky Bottom Action Bar              -->
+    <!-- ══════════════════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/bottomActionBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_card"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical"
+        android:elevation="12dp"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <!-- Teklif Ver (outlined) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCall"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="10dp"
+            android:text="Teklif Ver"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/unipazar_orange"
+            app:strokeColor="@color/unipazar_orange"
+            app:strokeWidth="1.5dp"
+            app:cornerRadius="50dp"/>
+
+        <!-- Mesaj Gönder (solid orange) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnWhatsApp"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_weight="1.4"
+            android:text="Mesaj Gönder"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/bg_card"
+            app:backgroundTint="@color/unipazar_orange"
+            app:cornerRadius="50dp"
+            app:icon="@drawable/ic_chevron_right"
+            app:iconTint="@color/bg_card"
+            app:iconGravity="end"/>
+    </LinearLayout>
+
+    <!-- ══════════════════════════════════════ -->
+    <!-- Scrollable Content                    -->
+    <!-- ══════════════════════════════════════ -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/detailScrollView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        app:layout_constraintTop_toBottomOf="@id/detailHeader"
+        app:layout_constraintBottom_toTopOf="@id/bottomActionBar">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- ── Image Collage ── -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="260dp"
+                android:orientation="horizontal"
+                android:background="@color/bg_card">
+
+                <!-- Left small image -->
+                <ImageView
+                    android:id="@+id/ivDetailImageSecondary"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="0.5"
+                    android:scaleType="centerCrop"
+                    android:background="@color/divider_color"/>
+
+                <!-- Right main image -->
+                <ImageView
+                    android:id="@+id/ivDetailImageMain"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginStart="3dp"
+                    android:scaleType="centerCrop"
+                    android:background="@color/divider_color"/>
+            </LinearLayout>
+
+            <!-- ── White card content ── -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@color/bg_card"
+                android:paddingHorizontal="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="12dp">
+
+                <!-- Price row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <!-- Main price -->
+                    <TextView
+                        android:id="@+id/tvDetailPrice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        tools:text="₺3.250"
+                        android:textSize="26sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/unipazar_orange"/>
+
+                    <!-- Strikethrough original price (visible only if discount) -->
+                    <TextView
+                        android:id="@+id/tvDetailOriginalPrice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        tools:text="₺3.900"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_hint"
+                        android:layout_marginStart="10dp"
+                        android:visibility="gone"/>
+
+                    <!-- Discount badge -->
+                    <TextView
+                        android:id="@+id/tvDetailDiscountBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        tools:text="-%20"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/unipazar_orange"
+                        android:background="@drawable/badge_bg"
+                        android:backgroundTint="#FFF0EB"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="3dp"
+                        android:layout_marginStart="8dp"
+                        android:visibility="gone"/>
+                </LinearLayout>
+
+                <!-- Title -->
+                <TextView
+                    android:id="@+id/tvDetailTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    tools:text="Samsung 27&quot; Odyssey G5 Curved Oyuncu Monitörü"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:lineSpacingExtra="2dp"
+                    android:layout_marginBottom="10dp"/>
+
+                <!-- Category + Timestamp row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="20dp">
+
+                    <!-- Category pill -->
+                    <TextView
+                        android:id="@+id/tvDetailCategory"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        tools:text="ELEKTRONİK"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_dark_gray"
+                        android:background="@drawable/dot_inactive"
+                        android:backgroundTint="@color/bg_input"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="5dp"/>
+
+                    <!-- Separator dot -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" • "
+                        android:textColor="@color/text_hint"
+                        android:textSize="13sp"/>
+
+                    <!-- Timestamp -->
+                    <TextView
+                        android:id="@+id/tvDetailTimestamp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        tools:text="2 saat önce yüklendi"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_hint"/>
+                </LinearLayout>
+
+                <!-- ── Location Card ── -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="14dp"
+                    app:cardElevation="0dp"
+                    app:cardBackgroundColor="@color/bg_main"
+                    android:layout_marginBottom="24dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="14dp">
+
+                        <!-- Orange pin circle -->
+                        <FrameLayout
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:background="@drawable/bg_circle_orange_light"
+                            android:layout_marginEnd="14dp">
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_location_pin"
+                                android:scaleType="fitCenter"/>
+                        </FrameLayout>
+
+                        <!-- Location text -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvDetailUniversity"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                tools:text="İTÜ Ayazağa Kampüsü"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary"/>
+
+                            <TextView
+                                android:id="@+id/tvDetailLocationSub"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                tools:text="İstanbul • Elden Teslim"
+                                android:textSize="12sp"
+                                android:textColor="@color/text_hint"
+                                android:layout_marginTop="2dp"/>
+                        </LinearLayout>
+
+                        <!-- Chevron -->
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_chevron_right"
+                            app:tint="@color/text_hint"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ── Açıklama ── -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Açıklama"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:id="@+id/tvDetailDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    tools:text="Ürün hakkında detaylar..."
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:lineSpacingExtra="4dp"
+                    android:layout_marginBottom="16dp"/>
+
+                <!-- ── Divider ── -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/bg_input"
+                    android:layout_marginBottom="16dp"/>
+
+                <!-- ── Satıcı bilgisi ── -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp"
+                        android:layout_marginEnd="12dp">
+                        <ImageView
+                            android:id="@+id/ivDetailSellerAvatar"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:src="@android:drawable/sym_def_app_icon"/>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:id="@+id/tvDetailSellerName"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            tools:text="Soykan Yılmaz"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary"/>
+                        <TextView
+                            android:id="@+id/tvDetailContactInfo"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            tools:text="0532 123 45 67"
+                            android:textSize="12sp"
+                            android:textColor="@color/text_hint"
+                            android:layout_marginTop="1dp"/>
+                    </LinearLayout>
+
+                    <!-- Type badge -->
+                    <TextView
+                        android:id="@+id/tvDetailType"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        tools:text="Satılık"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:background="@drawable/badge_bg"
+                        android:textColor="@color/bg_card"
+                        android:textSize="11sp"
+                        android:textStyle="bold"/>
+                </LinearLayout>
+
+                <!-- ── Mock Buy Button ── -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnBuy"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="16dp"
+                    android:text="Satın Al (Test)"
+                    android:textColor="@color/bg_card"
+                    app:backgroundTint="#10B981"
+                    app:cornerRadius="12dp" />
+
+                <!-- ── Others only: Rate Seller ── -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnRateSeller"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:text="Satıcıyı Değerlendir"
+                    android:textColor="@color/bg_card"
+                    app:backgroundTint="@color/unipazar_orange"
+                    app:cornerRadius="12dp"
+                    android:visibility="gone"/>
+
+                <!-- ── Owner only: Mark Sold ── -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnMarkSold"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:text="İlanı Satıldı İşaretle"
+                    android:textColor="@color/bg_card"
+                    app:backgroundTint="#10B981"
+                    app:cornerRadius="12dp"
+                    android:visibility="gone"/>
+
+                <!-- ── Owner only: Delete Ad ── -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDeleteAd"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:text="İlanı Sil"
+                    android:textColor="@color/bg_card"
+                    app:backgroundTint="#EF4444"
+                    app:cornerRadius="12dp"
+                    android:visibility="gone"/>
+
+            </LinearLayout>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
