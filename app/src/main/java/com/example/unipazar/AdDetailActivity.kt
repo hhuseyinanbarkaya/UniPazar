@@ -51,8 +51,19 @@ class AdDetailActivity : AppCompatActivity() {
         val firstImage = if (images.isNotEmpty()) images[0] else fallbackUrl
         val secondImage = if (images.size >= 2) images[1] else firstImage
         
-        Glide.with(this).load(firstImage).error(Glide.with(this).load(fallbackUrl)).transform(com.bumptech.glide.load.resource.bitmap.CenterCrop()).into(ivMain)
-        Glide.with(this).load(secondImage).error(Glide.with(this).load(fallbackUrl)).transform(com.bumptech.glide.load.resource.bitmap.CenterCrop()).into(ivSecondary)
+        if (firstImage.startsWith("data:image")) {
+            val bytes = android.util.Base64.decode(firstImage.substringAfter("base64,"), android.util.Base64.DEFAULT)
+            Glide.with(this).load(bytes).transform(com.bumptech.glide.load.resource.bitmap.CenterCrop()).into(ivMain)
+        } else {
+            Glide.with(this).load(firstImage).error(Glide.with(this).load(fallbackUrl)).transform(com.bumptech.glide.load.resource.bitmap.CenterCrop()).into(ivMain)
+        }
+        
+        if (secondImage.startsWith("data:image")) {
+            val bytes = android.util.Base64.decode(secondImage.substringAfter("base64,"), android.util.Base64.DEFAULT)
+            Glide.with(this).load(bytes).transform(com.bumptech.glide.load.resource.bitmap.CenterCrop()).into(ivSecondary)
+        } else {
+            Glide.with(this).load(secondImage).error(Glide.with(this).load(fallbackUrl)).transform(com.bumptech.glide.load.resource.bitmap.CenterCrop()).into(ivSecondary)
+        }
 
         // Price
         val cleanPrice = ad.price.replace("\u20BA", "").trim()
@@ -60,7 +71,7 @@ class AdDetailActivity : AppCompatActivity() {
 
         // Title, category, timestamp, location, description, seller
         findViewById<TextView>(R.id.tvDetailTitle).text = ad.title
-        findViewById<TextView>(R.id.tvDetailCategory).text = ad.category.uppercase()
+        findViewById<TextView>(R.id.tvDetailCategory).text = "${ad.category.uppercase()} • ${ad.university.uppercase()}"
         findViewById<TextView>(R.id.tvDetailTimestamp).text = TimeUtils.getTimeAgo(ad.timestamp) + " yuklendi"
         findViewById<TextView>(R.id.tvDetailDescription).text =
             if (ad.description.isNotEmpty()) ad.description else "Aciklama eklenmemis."
@@ -71,7 +82,12 @@ class AdDetailActivity : AppCompatActivity() {
         val ivAvatar = findViewById<ImageView>(R.id.ivDetailSellerAvatar)
         val defaultAvatar = "https://ui-avatars.com/api/?name=${ad.sellerName.replace(" ", "+")}&background=random"
         val avatarUrl = if (ad.sellerAvatarUrl.isNotEmpty()) ad.sellerAvatarUrl else defaultAvatar
-        Glide.with(this).load(avatarUrl).error(Glide.with(this).load(defaultAvatar)).circleCrop().into(ivAvatar)
+        if (avatarUrl.startsWith("data:image")) {
+            val bytes = android.util.Base64.decode(avatarUrl.substringAfter("base64,"), android.util.Base64.DEFAULT)
+            Glide.with(this).load(bytes).circleCrop().into(ivAvatar)
+        } else {
+            Glide.with(this).load(avatarUrl).error(Glide.with(this).load(defaultAvatar)).circleCrop().into(ivAvatar)
+        }
 
         // Type badge
         val tvType = findViewById<TextView>(R.id.tvDetailType)

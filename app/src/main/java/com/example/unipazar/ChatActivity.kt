@@ -73,10 +73,20 @@ class ChatActivity : AppCompatActivity() {
 
         val otherAvatar = conversation.participantAvatars[otherId] ?: ""
         if (otherAvatar.isNotEmpty()) {
-            Glide.with(this).load(otherAvatar).circleCrop().into(ivAvatar)
+            if (otherAvatar.startsWith("data:image")) {
+                val bytes = android.util.Base64.decode(otherAvatar.substringAfter("base64,"), android.util.Base64.DEFAULT)
+                Glide.with(this).load(bytes).circleCrop().into(ivAvatar)
+            } else {
+                Glide.with(this).load(otherAvatar).circleCrop().into(ivAvatar)
+            }
         }
         if (conversation.adImageUrl.isNotEmpty()) {
-            Glide.with(this).load(conversation.adImageUrl).centerCrop().into(ivAdThumb)
+            if (conversation.adImageUrl.startsWith("data:image")) {
+                val bytes = android.util.Base64.decode(conversation.adImageUrl.substringAfter("base64,"), android.util.Base64.DEFAULT)
+                Glide.with(this).load(bytes).centerCrop().into(ivAdThumb)
+            } else {
+                Glide.with(this).load(conversation.adImageUrl).centerCrop().into(ivAdThumb)
+            }
         }
 
         // Back button

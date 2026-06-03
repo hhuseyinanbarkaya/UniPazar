@@ -98,7 +98,12 @@ class EditProfileActivity : AppCompatActivity() {
                     
                     currentAvatarUrl = document.getString("avatarUrl") ?: ""
                     if (currentAvatarUrl.isNotEmpty()) {
-                        Glide.with(this).load(currentAvatarUrl).circleCrop().into(ivProfileAvatar)
+                        if (currentAvatarUrl.startsWith("data:image")) {
+                            val bytes = android.util.Base64.decode(currentAvatarUrl.substringAfter("base64,"), android.util.Base64.DEFAULT)
+                            Glide.with(this).load(bytes).circleCrop().into(ivProfileAvatar)
+                        } else {
+                            Glide.with(this).load(currentAvatarUrl).circleCrop().into(ivProfileAvatar)
+                        }
                     }
                 }
             }

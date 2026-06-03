@@ -172,6 +172,7 @@ class MainActivity : AppCompatActivity() {
 
         // Initial fetch
         fetchAds()
+        populateDummyData()
 
         // Start local notification service
         val serviceIntent = Intent(this, LocalNotificationService::class.java)
@@ -273,6 +274,104 @@ class MainActivity : AppCompatActivity() {
                 }
         } else {
             tvSelectedUniversity.text = "Tüm Üniversiteler"
+        }
+    }
+
+    private fun populateDummyData() {
+        val prefs = getSharedPreferences("dummy_prefs", MODE_PRIVATE)
+        if (prefs.getBoolean("populated", false)) return
+        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+
+        val fakeUsers = listOf(
+            hashMapOf("uid" to "dummy_user_1", "name" to "Ahmet Yılmaz", "university" to "İTÜ", "avatarUrl" to "https://ui-avatars.com/api/?name=Ahmet+Yilmaz&background=random"),
+            hashMapOf("uid" to "dummy_user_2", "name" to "Ayşe Kaya", "university" to "ODTÜ", "avatarUrl" to "https://ui-avatars.com/api/?name=Ayse+Kaya&background=random"),
+            hashMapOf("uid" to "dummy_user_3", "name" to "Mehmet Demir", "university" to "Boğaziçi Üniversitesi", "avatarUrl" to "https://ui-avatars.com/api/?name=Mehmet+Demir&background=random"),
+            hashMapOf("uid" to "dummy_user_4", "name" to "Zeynep Çelik", "university" to "Bilkent Üniversitesi", "avatarUrl" to "https://ui-avatars.com/api/?name=Zeynep+Celik&background=random"),
+            hashMapOf("uid" to "dummy_user_5", "name" to "Caner Şahin", "university" to "Yıldız Teknik Üniversitesi", "avatarUrl" to "https://ui-avatars.com/api/?name=Caner+Sahin&background=random")
+        )
+        for (u in fakeUsers) {
+            db.collection("users").document(u["uid"] as String).set(u, com.google.firebase.firestore.SetOptions.merge())
+        }
+
+        val universities = listOf("Boğaziçi Üniversitesi", "ODTÜ", "İTÜ", "Yıldız Teknik Üniversitesi", "Bilkent Üniversitesi", "Koç Üniversitesi", "Sabancı Üniversitesi", "Hacettepe Üniversitesi", "Ege Üniversitesi", "Marmara Üniversitesi")
+        
+        val adTemplates = listOf(
+            Triple("Elektronik", "MacBook Pro M1 2020", "Öğrenci için çok ideal, tertemiz kullanıldı. Çiziği bile yok. Pil döngüsü 120."),
+            Triple("Elektronik", "AirPods Pro", "Kutusu ve faturasıyla birlikte verilecektir. Hiçbir sorunu yok. Aktif gürültü engellemesi harika çalışıyor."),
+            Triple("Elektronik", "iPad Air 4. Nesil", "Sadece not tutmak için kullanıldı. Çiziksiz, kılıfıyla verilecektir."),
+            Triple("Elektronik", "Logitech MX Master 3", "Yazılımcılar ve tasarımcılar için en iyi mouse. İhtiyaç fazlası."),
+            Triple("Ders Kitabı", "Calculus 1 Thomas 14th Edition", "Sadece ilk 3 chapter okundu, yepyeni duruyor. Sınavlar için şart."),
+            Triple("Ders Kitabı", "Physics for Scientists and Engineers", "Kapağında ufak bir yıpranma var ama sayfaları tam ve çiziksiz. Sınav soruları içinde var."),
+            Triple("Ders Kitabı", "C++ How to Program", "Deitel & Deitel efsanesi. Bilgisayar mühendisliği öğrencilerine özel."),
+            Triple("Ev & Yaşam", "IKEA Çalışma Masası", "Mezun olduğum için satıyorum, çok temiz kullanıldı. Parçalarına ayrılabilir."),
+            Triple("Ev & Yaşam", "Mini Buzdolabı", "Yurt odası için hayat kurtarıcı, soğutması harika. Sessiz çalışır, gece rahatsız etmez."),
+            Triple("Ev & Yaşam", "Çalışma Koltuğu", "Bel destekli, çok rahat. Uzun çalışma saatleri için ideal."),
+            Triple("Moda", "Zara Kışlık Mont", "Sadece 1 sezon giyildi, tertemiz. L beden siyah renk. Kampüs kışları için birebir."),
+            Triple("Moda", "Nike Air Force 1", "42 numara, orijinal mağazasından alındı. Birkaç kez giyildi."),
+            Triple("Hobi", "Gitar ve Amfi Seti", "Öğrenmek için aldım ama vaktim olmadı. Sıfır ayarında klasiktir."),
+            Triple("Hobi", "Playstation 4 Oyunları Seti", "Fifa 22, GTA 5, Spider-Man. Toplu satılacaktır, diskler çiziksiz."),
+            Triple("Hobi", "Kamp Çadırı (2 Kişilik)", "Sadece 1 kez Uludağ kampında kullanıldı. Su geçirmez."),
+            Triple("Diğer", "Mühendislik Çizim Seti", "T-Cetveli, gönyeler ve pergel takımı. Çizim dersleri için gerekli her şey içinde.")
+        )
+        
+        var count = 0
+        for (i in 1..50) {
+            val template = adTemplates.random()
+            val uni = universities.random()
+            val sellerUid = fakeUsers.random()["uid"] as String
+            val category = template.first
+            val suffix = listOf("", " (Acil Satılık)", " (Pazarlık Payı Var)", " - Çok Temiz", " - Sıfır Ayarında").random()
+            val title = "${template.second}${suffix}"
+            val description = template.third
+            val price = (100..4500).random().toString()
+            val type = if (Math.random() > 0.15) "SALE" else "WANTED"
+            
+            val imageUrl = when (category) {
+                "Elektronik" -> listOf(
+                    "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=600&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1583394838336-acd977736f90?w=600&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&h=600&fit=crop"
+                ).random()
+                "Ev & Yaşam" -> listOf(
+                    "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&h=600&fit=crop"
+                ).random()
+                "Ders Kitabı" -> listOf(
+                    "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=600&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=600&h=600&fit=crop"
+                ).random()
+                "Moda" -> listOf(
+                    "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=600&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=600&fit=crop"
+                ).random()
+                "Hobi" -> listOf(
+                    "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1542204165-65bf26472b9b?w=600&h=600&fit=crop"
+                ).random()
+                else -> "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?w=600&h=600&fit=crop"
+            }
+            
+            val docRef = db.collection("ads").document()
+            val ad = hashMapOf(
+                "id" to docRef.id,
+                "title" to title,
+                "description" to description,
+                "price" to price,
+                "type" to type,
+                "university" to uni,
+                "category" to category,
+                "sellerUid" to sellerUid,
+                "imageUrl" to imageUrl,
+                "timestamp" to System.currentTimeMillis() - (Math.random() * 86400000 * 30).toLong()
+            )
+            docRef.set(ad).addOnSuccessListener {
+                count++
+                if(count == 50) {
+                    Toast.makeText(this, "50 Adet Harika Demo İlan Yüklendi!", Toast.LENGTH_LONG).show()
+                    prefs.edit().putBoolean("populated", true).apply()
+                    fetchAds()
+                }
+            }
         }
     }
 

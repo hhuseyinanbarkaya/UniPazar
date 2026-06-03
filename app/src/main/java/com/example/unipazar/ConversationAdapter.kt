@@ -48,16 +48,26 @@ class ConversationAdapter(
 
         // Avatar
         if (otherAvatar.isNotEmpty()) {
-            Glide.with(holder.itemView.context)
-                .load(otherAvatar).circleCrop().into(holder.ivAvatar)
+            if (otherAvatar.startsWith("data:image")) {
+                val bytes = android.util.Base64.decode(otherAvatar.substringAfter("base64,"), android.util.Base64.DEFAULT)
+                Glide.with(holder.itemView.context).load(bytes).circleCrop().into(holder.ivAvatar)
+            } else {
+                Glide.with(holder.itemView.context)
+                    .load(otherAvatar).circleCrop().into(holder.ivAvatar)
+            }
         } else {
             holder.ivAvatar.setImageResource(android.R.drawable.sym_def_app_icon)
         }
 
         // Ad thumbnail
         if (conv.adImageUrl.isNotEmpty()) {
-            Glide.with(holder.itemView.context)
-                .load(conv.adImageUrl).centerCrop().into(holder.ivAdThumb)
+            if (conv.adImageUrl.startsWith("data:image")) {
+                val bytes = android.util.Base64.decode(conv.adImageUrl.substringAfter("base64,"), android.util.Base64.DEFAULT)
+                Glide.with(holder.itemView.context).load(bytes).centerCrop().into(holder.ivAdThumb)
+            } else {
+                Glide.with(holder.itemView.context)
+                    .load(conv.adImageUrl).centerCrop().into(holder.ivAdThumb)
+            }
         } else {
             holder.ivAdThumb.setImageResource(R.drawable.placeholder_image)
         }

@@ -79,18 +79,22 @@ class AdAdapter(private var ads: List<Ad>) : RecyclerView.Adapter<AdAdapter.AdVi
         }
 
         val firstImage = if (ad.imageUrls.isNotEmpty()) ad.imageUrls[0] else ad.imageUrl
-        Glide.with(holder.itemView.context)
-            .load(if (firstImage.isNotEmpty()) firstImage else fallbackUrl)
-            .error(Glide.with(holder.itemView.context).load(fallbackUrl))
-            .transform(CenterCrop(), RoundedCorners(24))
-            .into(holder.ivAdImage)
+        val targetImage = if (firstImage.isNotEmpty()) firstImage else fallbackUrl
+        if (targetImage.startsWith("data:image")) {
+            val bytes = android.util.Base64.decode(targetImage.substringAfter("base64,"), android.util.Base64.DEFAULT)
+            Glide.with(holder.itemView.context).load(bytes).transform(CenterCrop(), RoundedCorners(24)).into(holder.ivAdImage)
+        } else {
+            Glide.with(holder.itemView.context).load(targetImage).error(Glide.with(holder.itemView.context).load(fallbackUrl)).transform(CenterCrop(), RoundedCorners(24)).into(holder.ivAdImage)
+        }
         
         val defaultAvatar = "https://ui-avatars.com/api/?name=${ad.sellerName.replace(" ", "+")}&background=random"
-        Glide.with(holder.itemView.context)
-            .load(if (ad.sellerAvatarUrl.isNotEmpty()) ad.sellerAvatarUrl else defaultAvatar)
-            .error(Glide.with(holder.itemView.context).load(defaultAvatar))
-            .transform(CenterCrop(), RoundedCorners(100))
-            .into(holder.ivSellerAvatar)
+        val targetAvatar = if (ad.sellerAvatarUrl.isNotEmpty()) ad.sellerAvatarUrl else defaultAvatar
+        if (targetAvatar.startsWith("data:image")) {
+            val bytes = android.util.Base64.decode(targetAvatar.substringAfter("base64,"), android.util.Base64.DEFAULT)
+            Glide.with(holder.itemView.context).load(bytes).transform(CenterCrop(), RoundedCorners(100)).into(holder.ivSellerAvatar)
+        } else {
+            Glide.with(holder.itemView.context).load(targetAvatar).error(Glide.with(holder.itemView.context).load(defaultAvatar)).transform(CenterCrop(), RoundedCorners(100)).into(holder.ivSellerAvatar)
+        }
 
         // Open Ad Detail Screen
         holder.itemView.setOnClickListener {

@@ -137,10 +137,15 @@ class ProfileActivity : AppCompatActivity() {
                     tvProfileUniversity.text = university
                     
                     if (avatarUrl.isNotEmpty()) {
-                        com.bumptech.glide.Glide.with(this)
-                            .load(avatarUrl)
-                            .circleCrop()
-                            .into(ivProfilePic)
+                        if (avatarUrl.startsWith("data:image")) {
+                            val bytes = android.util.Base64.decode(avatarUrl.substringAfter("base64,"), android.util.Base64.DEFAULT)
+                            com.bumptech.glide.Glide.with(this).load(bytes).circleCrop().into(ivProfilePic)
+                        } else {
+                            com.bumptech.glide.Glide.with(this)
+                                .load(avatarUrl)
+                                .circleCrop()
+                                .into(ivProfilePic)
+                        }
                     }
                 } else {
                     tvProfileName.text = auth.currentUser?.email?.split("@")?.get(0) ?: "Kullanıcı"
