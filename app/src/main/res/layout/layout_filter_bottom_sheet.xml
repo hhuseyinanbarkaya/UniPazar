@@ -58,6 +58,49 @@
             android:textColor="@color/text_primary" />
     </RadioGroup>
 
+    <!-- Ad Type -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="İlan Tipi"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_dark_gray"
+        android:layout_marginBottom="8dp" />
+
+    <RadioGroup
+        android:id="@+id/rgAdTypeOptions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="20dp">
+
+        <RadioButton
+            android:id="@+id/rbAdTypeAll"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Tümü"
+            android:textColor="@color/text_primary"
+            android:checked="true" />
+
+        <RadioButton
+            android:id="@+id/rbAdTypeSelling"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Satıyorum"
+            android:textColor="@color/text_primary" />
+
+        <RadioButton
+            android:id="@+id/rbAdTypeBuying"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Arıyorum"
+            android:textColor="@color/text_primary" />
+    </RadioGroup>
+
     <!-- Price Range -->
     <TextView
         android:layout_width="wrap_content"

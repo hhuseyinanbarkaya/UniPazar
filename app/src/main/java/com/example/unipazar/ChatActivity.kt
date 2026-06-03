@@ -101,6 +101,12 @@ class ChatActivity : AppCompatActivity() {
         val btnSend = findViewById<View>(R.id.btnSendMessage)
         val btnAttachImage = findViewById<View>(R.id.btnAttachImage)
 
+        // Prefill message if available (e.g. from offer dialog)
+        val prefillMsg = intent.getStringExtra("PREFILL_MESSAGE")
+        if (!prefillMsg.isNullOrEmpty()) {
+            etInput.setText(prefillMsg)
+        }
+
         btnAttachImage.setOnClickListener {
             selectImageLauncher.launch("image/*")
         }
@@ -196,6 +202,21 @@ class ChatActivity : AppCompatActivity() {
                     "unreadCount.$otherId" to FieldValue.increment(1)
                 )
                 db.collection("conversations").document(conversationId).update(convUpdate)
+                
+                // Bildirim Gonder
+                val notifId = java.util.UUID.randomUUID().toString()
+                val notif = Notification(
+                    id = notifId,
+                    receiverUid = otherId,
+                    senderUid = senderId,
+                    senderName = currentName,
+                    title = "Yeni Mesaj",
+                    message = if (imageUrl != null) "📷 Fotoğraf gönderdi" else text,
+                    type = "MESSAGE",
+                    relatedId = conversationId,
+                    timestamp = timestamp
+                )
+                db.collection("users").document(otherId).collection("notifications").document(notifId).set(notif)
             }
             .addOnFailureListener { e ->
                 Toast.makeText(this, "Mesaj gonderilemedi: ${e.message}", Toast.LENGTH_SHORT).show()

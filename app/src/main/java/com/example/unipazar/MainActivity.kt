@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private var minPriceFilter: Double? = null
     private var maxPriceFilter: Double? = null
     private var selectedUniversityFilter: String = "Tüm Üniversiteler"
+    private var adTypeFilter: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,11 +84,11 @@ class MainActivity : AppCompatActivity() {
         val catFashion = findViewById<View>(R.id.catFashion)
 
         val categoriesMap = mapOf(
-            catElectronics to "Electronics",
-            catBooks to "Books",
-            catHome to "Home",
-            catWanted to "Wanted",
-            catFashion to "Fashion"
+            catElectronics to "Elektronik",
+            catBooks to "Kitap",
+            catHome to "Ev Eşyası",
+            catWanted to "Diğer", // Using Diğer for Aranıyor since "Aranıyor" isn't a strict DB category, or maybe map it to nothing.
+            catFashion to "Giyim"
         )
 
         categoriesMap.forEach { (view, categoryName) ->
@@ -261,12 +262,8 @@ class MainActivity : AppCompatActivity() {
                         profileName = doc.getString("name") ?: ""
                         val university = doc.getString("university") ?: ""
                         if (university.isNotEmpty()) {
-                            // Don't auto-set to profile university if they already changed it
-                            if (selectedUniversityFilter == "Tüm Üniversiteler" && tvSelectedUniversity.text.toString() == "Üniversite Seç") {
-                                selectedUniversityFilter = university
-                                tvSelectedUniversity.text = university
-                                filterAds()
-                            }
+                            // Removing auto-set logic based on user request. 
+                            // Default will remain "Tüm Üniversiteler".
                         } else {
                             if (tvSelectedUniversity.text.toString() == "Üniversite Seç") {
                                 tvSelectedUniversity.text = "Tüm Üniversiteler"
@@ -289,29 +286,69 @@ class MainActivity : AppCompatActivity() {
         recyclerView.visibility = View.GONE
         llEmptyState.visibility = View.GONE
         
-        db.collection("ads")
-            .orderBy("timestamp", Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshots, e ->
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (currentUser != null) {
+            db.collection("users").document(currentUser.uid).get().addOnSuccessListener { userDoc ->
+                val blockedUsers = userDoc.get("blockedUsers") as? List<String> ?: emptyList()
                 
-                shimmerLayout.stopShimmer()
-                shimmerLayout.visibility = View.GONE
+                db.collection("ads")
+                    .orderBy("timestamp", Query.Direction.DESCENDING)
+                    .addSnapshotListener { snapshots, e ->
+                        shimmerLayout.stopShimmer()
+                        shimmerLayout.visibility = View.GONE
 
-                if (e != null) {
-                    Toast.makeText(this, "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
-                    llEmptyState.visibility = View.VISIBLE
-                    return@addSnapshotListener
-                }
+                        if (e != null) {
+                            Toast.makeText(this, "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
+                            llEmptyState.visibility = View.VISIBLE
+                            return@addSnapshotListener
+                        }
 
-                if (snapshots != null) {
-                    allAds.clear()
-                    for (doc in snapshots) {
-                        val ad = doc.toObject(Ad::class.java)
-                        allAds.add(ad)
+                        if (snapshots != null) {
+                            allAds.clear()
+                            val thirtyDaysInMillis = 30L * 24 * 60 * 60 * 1000
+                            val currentTime = System.currentTimeMillis()
+                            
+                            for (doc in snapshots) {
+                                val ad = doc.toObject(Ad::class.java)
+                                // Engellenen kullanıcıları filtrele ve 30 günden eski ilanları gösterme
+                                if (!blockedUsers.contains(ad.sellerUid) && (currentTime - ad.timestamp <= thirtyDaysInMillis)) {
+                                    allAds.add(ad)
+                                }
+                            }
+                        }
+
+                        filterAds()
                     }
-                }
-
-                filterAds()
             }
+        } else {
+            db.collection("ads")
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshots, e ->
+                    shimmerLayout.stopShimmer()
+                    shimmerLayout.visibility = View.GONE
+
+                    if (e != null) {
+                        Toast.makeText(this, "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
+                        llEmptyState.visibility = View.VISIBLE
+                        return@addSnapshotListener
+                    }
+
+                    if (snapshots != null) {
+                        allAds.clear()
+                        val thirtyDaysInMillis = 30L * 24 * 60 * 60 * 1000
+                        val currentTime = System.currentTimeMillis()
+                        
+                        for (doc in snapshots) {
+                            val ad = doc.toObject(Ad::class.java)
+                            if (currentTime - ad.timestamp <= thirtyDaysInMillis) {
+                                allAds.add(ad)
+                            }
+                        }
+                    }
+
+                    filterAds()
+                }
+        }
     }
 
     private fun filterAds() {
@@ -351,8 +388,14 @@ class MainActivity : AppCompatActivity() {
 
         // Apply University Filter
         if (selectedUniversityFilter != "Tüm Üniversiteler") {
-            filtered = filtered.filter {
+            filtered = filtered.filter { 
                 it.university.equals(selectedUniversityFilter, ignoreCase = true)
+            }
+        }
+
+        if (adTypeFilter != null && adTypeFilter != "Tümü") {
+            filtered = filtered.filter {
+                it.type.equals(adTypeFilter, ignoreCase = true)
             }
         }
 
@@ -397,6 +440,12 @@ class MainActivity : AppCompatActivity() {
         val rbSortNewest = view.findViewById<android.widget.RadioButton>(R.id.rbSortNewest)
         val rbSortLowestPrice = view.findViewById<android.widget.RadioButton>(R.id.rbSortLowestPrice)
         val rbSortHighestPrice = view.findViewById<android.widget.RadioButton>(R.id.rbSortHighestPrice)
+        
+        val rgAdTypeOptions = view.findViewById<android.widget.RadioGroup>(R.id.rgAdTypeOptions)
+        val rbAdTypeAll = view.findViewById<android.widget.RadioButton>(R.id.rbAdTypeAll)
+        val rbAdTypeSelling = view.findViewById<android.widget.RadioButton>(R.id.rbAdTypeSelling)
+        val rbAdTypeBuying = view.findViewById<android.widget.RadioButton>(R.id.rbAdTypeBuying)
+        
         val etMinPrice = view.findViewById<EditText>(R.id.etMinPrice)
         val etMaxPrice = view.findViewById<EditText>(R.id.etMaxPrice)
         val btnApplyFilter = view.findViewById<android.widget.Button>(R.id.btnApplyFilter)
@@ -409,6 +458,12 @@ class MainActivity : AppCompatActivity() {
             else -> rbSortNewest.isChecked = true
         }
         
+        when (adTypeFilter) {
+            "Satıyorum" -> rbAdTypeSelling.isChecked = true
+            "Arıyorum" -> rbAdTypeBuying.isChecked = true
+            else -> rbAdTypeAll.isChecked = true
+        }
+        
         etMinPrice.setText(minPriceFilter?.toInt()?.toString() ?: "")
         etMaxPrice.setText(maxPriceFilter?.toInt()?.toString() ?: "")
 
@@ -418,6 +473,13 @@ class MainActivity : AppCompatActivity() {
                 R.id.rbSortHighestPrice -> 2
                 else -> 0
             }
+            
+            adTypeFilter = when (rgAdTypeOptions.checkedRadioButtonId) {
+                R.id.rbAdTypeSelling -> "Satıyorum"
+                R.id.rbAdTypeBuying -> "Arıyorum"
+                else -> "Tümü"
+            }
+            
             val minText = etMinPrice.text.toString()
             val maxText = etMaxPrice.text.toString()
             minPriceFilter = minText.toDoubleOrNull()
@@ -430,6 +492,7 @@ class MainActivity : AppCompatActivity() {
 
         btnClearFilter.setOnClickListener {
             sortOption = 0
+            adTypeFilter = null
             minPriceFilter = null
             maxPriceFilter = null
             bottomSheetDialog.dismiss()

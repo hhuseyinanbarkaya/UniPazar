@@ -17,6 +17,7 @@ data class Ad(
     var sellerName: String = "Anonim Satici",
     var sellerAvatarUrl: String = "",
     var sellerUid: String = "",
+    var isSellerVerified: Boolean = false,
     var timestamp: Long = 0
 ): Serializable
 

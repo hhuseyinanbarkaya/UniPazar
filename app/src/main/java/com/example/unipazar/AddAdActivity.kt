@@ -11,6 +11,8 @@ import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import android.text.TextWatcher
+import android.text.Editable
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -42,6 +44,10 @@ class AddAdActivity : AppCompatActivity() {
 
     private val categories = listOf("Kitap", "Elektronik", "Eşya", "Giyim", "Diğer")
     private var selectedCategory = ""
+    
+    private var editAdId: String? = null
+    private var existingImageUrls: List<String> = emptyList()
+    private var existingTimestamp: Long = 0L
 
     private val getMultipleContent = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris.isNotEmpty()) {
@@ -131,10 +137,12 @@ class AddAdActivity : AppCompatActivity() {
         val etDescription = findViewById<EditText>(R.id.etDescription)
         val etPrice = findViewById<EditText>(R.id.etPrice)
         val etUniversity = findViewById<EditText>(R.id.etUniversity)
-        val etCampus = findViewById<EditText>(R.id.etCampus)
-        val etContactInfo = findViewById<EditText>(R.id.etContactInfo)
         val btnSubmit = findViewById<MaterialButton>(R.id.btnSubmit)
         val progressBar = findViewById<ProgressBar>(R.id.progressBar)
+
+        etUniversity.setOnClickListener {
+            showUniversitySelector(etUniversity)
+        }
 
         // Prefill from Firestore profile
         val currentUser = auth.currentUser
@@ -145,14 +153,39 @@ class AddAdActivity : AppCompatActivity() {
                         userProfileName = doc.getString("name")
                         userProfilePhone = doc.getString("phone")
                         userProfileUniversity = doc.getString("university")
-                        val campus = doc.getString("campus") ?: ""
                         userAvatarUrl = doc.getString("avatarUrl")
 
-                        userProfilePhone?.let { if (it.isNotEmpty()) etContactInfo.setText(it) }
-                        userProfileUniversity?.let { if (it.isNotEmpty()) etUniversity.setText(it) }
-                        if (campus.isNotEmpty()) etCampus.setText(campus)
+                        userProfileUniversity?.let { if (it.isNotEmpty() && etUniversity.text.isEmpty()) etUniversity.setText(it) }
                     }
                 }
+        }
+
+        // Check if we are in Edit Mode
+        editAdId = intent.getStringExtra("EDIT_AD_ID")
+        if (editAdId != null) {
+            findViewById<TextView>(R.id.tvAddAdHeaderTitle).text = "İlanı Düzenle"
+            btnSubmit.text = "Değişiklikleri Kaydet →"
+            
+            db.collection("ads").document(editAdId!!).get().addOnSuccessListener { doc ->
+                if (doc.exists()) {
+                    etTitle.setText(doc.getString("title"))
+                    etDescription.setText(doc.getString("description"))
+                    etPrice.setText(doc.getString("price"))
+                    etUniversity.setText(doc.getString("university"))
+                    
+                    val cat = doc.getString("category") ?: "Diğer"
+                    selectedCategory = cat
+                    tvCategorySelected.text = cat
+                    tvCategorySelected.setTextColor(android.graphics.Color.parseColor("#111827"))
+                    
+                    val type = doc.getString("type")
+                    if (type == "WANTED") tabAriyorum.performClick() else tabSatiyorum.performClick()
+                    
+                    existingImageUrls = doc.get("imageUrls") as? List<String> ?: emptyList()
+                    val timestamp = doc.getLong("timestamp")
+                    if (timestamp != null) existingTimestamp = timestamp
+                }
+            }
         }
 
         // Bottom nav
@@ -182,8 +215,6 @@ class AddAdActivity : AppCompatActivity() {
             val description = etDescription.text.toString().trim()
             val price = etPrice.text.toString().trim()
             val university = etUniversity.text.toString().trim()
-            val campus = etCampus.text.toString().trim()
-            val contactInfo = etContactInfo.text.toString().trim()
             val category = if (selectedCategory.isNotEmpty()) selectedCategory else "Diğer"
 
             if (title.isBlank() || price.isBlank() || university.isBlank()) {
@@ -194,39 +225,78 @@ class AddAdActivity : AppCompatActivity() {
             btnSubmit.isEnabled = false
             progressBar.visibility = View.VISIBLE
 
-            val adId = UUID.randomUUID().toString()
+            val adId = editAdId ?: UUID.randomUUID().toString()
             val imageUrls = mutableListOf<String>()
 
             if (selectedImages.isNotEmpty()) {
                 var uploadedCount = 0
                 for (uri in selectedImages) {
                     val ref = storage.reference.child("ad_images/${adId}_${UUID.randomUUID()}.jpg")
-                    ref.putFile(uri)
-                        .addOnSuccessListener {
+                    
+                    // Compress Image safely
+                    try {
+                        val bmp = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                            val source = android.graphics.ImageDecoder.createSource(contentResolver, uri)
+                            android.graphics.ImageDecoder.decodeBitmap(source)
+                        } else {
+                            android.provider.MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                        }
+                        val baos = java.io.ByteArrayOutputStream()
+                        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, baos)
+                        val data = baos.toByteArray()
+                        
+                        ref.putBytes(data).addOnSuccessListener { taskSnapshot ->
                             ref.downloadUrl.addOnSuccessListener { downloadUri ->
                                 imageUrls.add(downloadUri.toString())
                                 uploadedCount++
                                 if (uploadedCount == selectedImages.size) {
-                                    saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, contactInfo, campus)
+                                    saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
+                                }
+                            }.addOnFailureListener {
+                                uploadedCount++
+                                if (uploadedCount == selectedImages.size) {
+                                    saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
                                 }
                             }
-                        }
-                        .addOnFailureListener {
+                        }.addOnFailureListener {
                             uploadedCount++
                             if (uploadedCount == selectedImages.size) {
-                                saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, contactInfo, campus)
+                                saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
                             }
                         }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        // Fallback to original file
+                        ref.putFile(uri).addOnSuccessListener { taskSnapshot ->
+                            ref.downloadUrl.addOnSuccessListener { downloadUri ->
+                                imageUrls.add(downloadUri.toString())
+                                uploadedCount++
+                                if (uploadedCount == selectedImages.size) {
+                                    saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
+                                }
+                            }.addOnFailureListener {
+                                uploadedCount++
+                                if (uploadedCount == selectedImages.size) {
+                                    saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
+                                }
+                            }
+                        }.addOnFailureListener {
+                            uploadedCount++
+                            if (uploadedCount == selectedImages.size) {
+                                saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
+                            }
+                        }
+                    }
                 }
             } else {
-                saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, emptyList(), contactInfo, campus)
+                saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, existingImageUrls, "")
             }
         }
     }
 
     private fun saveAdToFirestore(
         id: String, title: String, description: String, price: String,
-        type: String, university: String, category: String, imageUrls: List<String>, contactInfo: String, campus: String = ""
+        type: String, university: String, category: String, imageUrls: List<String>, contactInfo: String
     ) {
         val user = auth.currentUser
         val newAd = Ad(
@@ -243,12 +313,15 @@ class AddAdActivity : AppCompatActivity() {
             sellerName = if (!userProfileName.isNullOrBlank()) userProfileName!! else (user?.displayName ?: user?.email?.split("@")?.get(0) ?: "Anonim Satici"),
             sellerAvatarUrl = userAvatarUrl ?: "",
             sellerUid = user?.uid ?: "",
-            timestamp = System.currentTimeMillis()
+            isSellerVerified = user?.email?.endsWith(".edu.tr") == true,
+            timestamp = if (existingTimestamp > 0L) existingTimestamp else System.currentTimeMillis()
         )
+
+        val successMessage = if (editAdId != null) "🎉 İlan başarıyla güncellendi!" else "🎉 İlan başarıyla yayına alındı!"
 
         db.collection("ads").document(id).set(newAd)
             .addOnSuccessListener {
-                Toast.makeText(this, "🎉 İlan başarıyla yayına alındı!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, successMessage, Toast.LENGTH_SHORT).show()
                 finish()
             }
             .addOnFailureListener { e ->
@@ -256,5 +329,46 @@ class AddAdActivity : AppCompatActivity() {
                 findViewById<MaterialButton>(R.id.btnSubmit).isEnabled = true
                 findViewById<ProgressBar>(R.id.progressBar).visibility = View.GONE
             }
+    }
+
+    private fun showUniversitySelector(targetEditText: EditText) {
+        val bottomSheetDialog = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.layout_university_bottom_sheet, null)
+
+        val etSearchUniversity = view.findViewById<EditText>(R.id.etSearchUniversity)
+        val rvUniversities = view.findViewById<RecyclerView>(R.id.rvUniversities)
+
+        rvUniversities.layoutManager = LinearLayoutManager(this)
+        
+        val adapter = UniversityAdapter(UniversityData.universities) { selectedUni ->
+            targetEditText.setText(selectedUni)
+            bottomSheetDialog.dismiss()
+        }
+        rvUniversities.adapter = adapter
+
+        etSearchUniversity.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val query = s?.toString()?.lowercase() ?: ""
+                val filteredList = UniversityData.universities.filter {
+                    it.lowercase().contains(query)
+                }
+                adapter.updateList(filteredList)
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        bottomSheetDialog.setContentView(view)
+        
+        bottomSheetDialog.setOnShowListener { dialog ->
+            val d = dialog as com.google.android.material.bottomsheet.BottomSheetDialog
+            val bottomSheet = d.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bottomSheet?.let {
+                val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
+                behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+            }
+        }
+
+        bottomSheetDialog.show()
     }
 }

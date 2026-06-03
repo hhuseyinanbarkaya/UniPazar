@@ -166,26 +166,7 @@
                     android:layout_height="wrap_content"/>
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- University Input -->
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="Okuduğunuz Üniversite"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                app:boxCornerRadiusTopStart="12dp"
-                app:boxCornerRadiusTopEnd="12dp"
-                app:boxCornerRadiusBottomStart="12dp"
-                app:boxCornerRadiusBottomEnd="12dp"
-                app:startIconDrawable="@drawable/ic_grad_cap"
-                app:startIconTint="@color/text_secondary"
-                android:layout_marginBottom="20dp">
-                
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etProfileUniversity"
-                    android:inputType="textAutoComplete"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"/>
-            </com.google.android.material.textfield.TextInputLayout>
+
 
             <!-- Bio Input -->
             <com.google.android.material.textfield.TextInputLayout

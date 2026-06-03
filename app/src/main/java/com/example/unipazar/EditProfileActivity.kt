@@ -3,12 +3,15 @@ package com.example.unipazar
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
@@ -27,7 +30,6 @@ class EditProfileActivity : AppCompatActivity() {
     private lateinit var btnChangeAvatar: TextView
     private lateinit var etProfileName: TextInputEditText
     private lateinit var etProfilePhone: TextInputEditText
-    private lateinit var etProfileUniversity: TextInputEditText
     private lateinit var etProfileBio: TextInputEditText
     private lateinit var btnSaveProfile: MaterialButton
     private lateinit var profileProgressBar: ProgressBar
@@ -66,7 +68,6 @@ class EditProfileActivity : AppCompatActivity() {
         btnChangeAvatar = findViewById(R.id.btnChangeAvatar)
         etProfileName = findViewById(R.id.etProfileName)
         etProfilePhone = findViewById(R.id.etProfilePhone)
-        etProfileUniversity = findViewById(R.id.etProfileUniversity)
         etProfileBio = findViewById(R.id.etProfileBio)
         btnSaveProfile = findViewById(R.id.btnSaveProfile)
         profileProgressBar = findViewById(R.id.profileProgressBar)
@@ -93,7 +94,6 @@ class EditProfileActivity : AppCompatActivity() {
                 if (document != null && document.exists()) {
                     etProfileName.setText(document.getString("name") ?: "")
                     etProfilePhone.setText(document.getString("phone") ?: "")
-                    etProfileUniversity.setText(document.getString("university") ?: "")
                     etProfileBio.setText(document.getString("bio") ?: "")
                     
                     currentAvatarUrl = document.getString("avatarUrl") ?: ""
@@ -112,10 +112,9 @@ class EditProfileActivity : AppCompatActivity() {
     private fun saveUserProfile(uid: String, email: String) {
         val name = etProfileName.text.toString().trim()
         val phone = etProfilePhone.text.toString().trim()
-        val university = etProfileUniversity.text.toString().trim()
         val bio = etProfileBio.text.toString().trim()
 
-        if (name.isEmpty() || phone.isEmpty() || university.isEmpty()) {
+        if (name.isEmpty() || phone.isEmpty()) {
             Toast.makeText(this, "Lütfen gerekli alanları doldurun (*)", Toast.LENGTH_SHORT).show()
             return
         }
@@ -125,30 +124,35 @@ class EditProfileActivity : AppCompatActivity() {
 
         if (avatarUri != null) {
             val ref = storage.reference.child("avatars/$uid.jpg")
-            ref.putFile(avatarUri!!)
+            
+            // Compress Image
+            val bmp = android.provider.MediaStore.Images.Media.getBitmap(contentResolver, avatarUri)
+            val baos = java.io.ByteArrayOutputStream()
+            bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, baos)
+            val data = baos.toByteArray()
+            
+            ref.putBytes(data)
                 .addOnSuccessListener {
                     ref.downloadUrl.addOnSuccessListener { uri ->
-                        saveToFirestore(uid, email, name, phone, university, bio, uri.toString())
+                        saveToFirestore(uid, email, name, phone, bio, uri.toString())
                     }
                 }
                 .addOnFailureListener { e ->
-                    profileProgressBar.visibility = View.GONE
-                    btnSaveProfile.isEnabled = true
-                    Toast.makeText(this, "Fotoğraf yüklenemedi: ${e.message}", Toast.LENGTH_SHORT).show()
+                    // If image upload fails (e.g. storage quota), just proceed with old avatar so app doesn't break
+                    saveToFirestore(uid, email, name, phone, bio, currentAvatarUrl)
                 }
         } else {
-            saveToFirestore(uid, email, name, phone, university, bio, currentAvatarUrl)
+            saveToFirestore(uid, email, name, phone, bio, currentAvatarUrl)
         }
     }
 
-    private fun saveToFirestore(uid: String, email: String, name: String, phone: String, university: String, bio: String, avatarUrl: String) {
+    private fun saveToFirestore(uid: String, email: String, name: String, phone: String, bio: String, avatarUrl: String) {
         val userProfile = hashMapOf(
             "uid" to uid,
             "email" to email,
             "name" to name,
             "phone" to phone,
             "bio" to bio,
-            "university" to university,
             "avatarUrl" to avatarUrl
         )
 

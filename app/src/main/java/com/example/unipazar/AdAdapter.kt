@@ -26,6 +26,7 @@ class AdAdapter(private var ads: List<Ad>) : RecyclerView.Adapter<AdAdapter.AdVi
         val tvSellerName: TextView = view.findViewById(R.id.tvSellerName)
         val tvTimestamp: TextView = view.findViewById(R.id.tvTimestamp)
         val ivSellerAvatar: ImageView = view.findViewById(R.id.ivSellerAvatar)
+        val ivVerifiedBadge: ImageView? = view.findViewById(R.id.ivVerifiedBadge)
     }
 
     companion object {
@@ -53,11 +54,12 @@ class AdAdapter(private var ads: List<Ad>) : RecyclerView.Adapter<AdAdapter.AdVi
         val ad = ads[position]
         holder.tvTitle.text = ad.title
         holder.tvDescription.text = ad.description
-        holder.tvPrice.text = ad.price
+        holder.tvPrice.text = "₺" + PriceFormatter.format(ad.price.replace("₺", "").trim())
         holder.tvUniversity.text = ad.university
         
         holder.tvSellerName.text = ad.sellerName
         holder.tvTimestamp.text = TimeUtils.getTimeAgo(ad.timestamp)
+        holder.ivVerifiedBadge?.visibility = if (ad.isSellerVerified) View.VISIBLE else View.GONE
 
         if (ad.type == "SALE") {
             holder.tvBadge.text = "Satılık"
@@ -67,27 +69,28 @@ class AdAdapter(private var ads: List<Ad>) : RecyclerView.Adapter<AdAdapter.AdVi
             holder.tvBadge.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F59E0B"))
         }
         
-        // Show first image if list is not empty, else fallback to old imageUrl, else hide/placeholder
+        val fallbackUrl = when (ad.category) {
+            "Kitap" -> "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop"
+            "Elektronik" -> "https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=800&auto=format&fit=crop"
+            "Ev Eşyası" -> "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?q=80&w=800&auto=format&fit=crop"
+            "Özel Ders" -> "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=800&auto=format&fit=crop"
+            "Diğer" -> "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=800&auto=format&fit=crop"
+            else -> "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=800&auto=format&fit=crop"
+        }
+
         val firstImage = if (ad.imageUrls.isNotEmpty()) ad.imageUrls[0] else ad.imageUrl
-        if (firstImage.isNotEmpty()) {
-            Glide.with(holder.itemView.context)
-                .load(firstImage)
-                .transform(CenterCrop(), RoundedCorners(24))
-                .into(holder.ivAdImage)
-        } else {
-            // Load a default placeholder
-            Glide.with(holder.itemView.context)
-                .load(R.drawable.placeholder_image) // We'll create this or use a color
-                .transform(CenterCrop(), RoundedCorners(24))
-                .into(holder.ivAdImage)
-        }
+        Glide.with(holder.itemView.context)
+            .load(if (firstImage.isNotEmpty()) firstImage else fallbackUrl)
+            .error(Glide.with(holder.itemView.context).load(fallbackUrl))
+            .transform(CenterCrop(), RoundedCorners(24))
+            .into(holder.ivAdImage)
         
-        if (ad.sellerAvatarUrl.isNotEmpty()) {
-            Glide.with(holder.itemView.context)
-                .load(ad.sellerAvatarUrl)
-                .transform(CenterCrop(), RoundedCorners(100))
-                .into(holder.ivSellerAvatar)
-        }
+        val defaultAvatar = "https://ui-avatars.com/api/?name=${ad.sellerName.replace(" ", "+")}&background=random"
+        Glide.with(holder.itemView.context)
+            .load(if (ad.sellerAvatarUrl.isNotEmpty()) ad.sellerAvatarUrl else defaultAvatar)
+            .error(Glide.with(holder.itemView.context).load(defaultAvatar))
+            .transform(CenterCrop(), RoundedCorners(100))
+            .into(holder.ivSellerAvatar)
 
         // Open Ad Detail Screen
         holder.itemView.setOnClickListener {

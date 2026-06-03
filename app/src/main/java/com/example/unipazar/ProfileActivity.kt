@@ -7,6 +7,12 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import android.widget.EditText
+import android.text.TextWatcher
+import android.text.Editable
+import android.view.View
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -95,11 +101,9 @@ class ProfileActivity : AppCompatActivity() {
         findViewById<LinearLayout>(R.id.btnFavorites).setOnClickListener {
             startActivity(Intent(this, AdListActivity::class.java).putExtra("LIST_TYPE", "FAVORITES"))
         }
-        findViewById<LinearLayout>(R.id.btnPurchases).setOnClickListener {
-            startActivity(Intent(this, AdListActivity::class.java).putExtra("LIST_TYPE", "PURCHASES"))
-        }
+
         findViewById<LinearLayout>(R.id.btnCampusSettings).setOnClickListener {
-            startActivity(Intent(this, CampusSettingsActivity::class.java))
+            showUniversitySelector()
         }
         findViewById<LinearLayout>(R.id.btnHelpSupport).setOnClickListener {
             startActivity(Intent(this, SupportActivity::class.java))
@@ -108,18 +112,29 @@ class ProfileActivity : AppCompatActivity() {
 
     private fun loadUserData(uid: String) {
         val ivProfilePic = findViewById<android.widget.ImageView>(R.id.ivProfileImage)
-        val tvRating = findViewById<TextView>(R.id.tvRating)
+        val tvProfileVerifiedBadge = findViewById<TextView>(R.id.tvProfileVerifiedBadge)
+        
+        val email = auth.currentUser?.email ?: ""
+        if (email.endsWith(".edu.tr")) {
+            tvProfileVerifiedBadge.text = "Onaylı Öğrenci"
+            tvProfileVerifiedBadge.setBackgroundResource(R.drawable.bg_badge_verified)
+            tvProfileVerifiedBadge.setTextColor(android.graphics.Color.parseColor("#C2410C"))
+            tvProfileVerifiedBadge.visibility = View.VISIBLE
+        } else {
+            tvProfileVerifiedBadge.text = "Doğrulanmamış Kullanıcı"
+            tvProfileVerifiedBadge.setBackgroundResource(R.drawable.bg_input_field)
+            tvProfileVerifiedBadge.setTextColor(android.graphics.Color.parseColor("#6B7280"))
+            tvProfileVerifiedBadge.visibility = View.VISIBLE
+        }
+
         db.collection("users").document(uid).get()
             .addOnSuccessListener { doc ->
                 if (doc != null && doc.exists()) {
                     val name = doc.getString("name") ?: auth.currentUser?.email?.split("@")?.get(0) ?: "Kullanıcı"
                     val university = doc.getString("university") ?: "Üniversite belirtilmemiş"
                     val avatarUrl = doc.getString("avatarUrl") ?: ""
-                    val rating = doc.getDouble("rating") ?: 0.0
-                    
                     tvProfileName.text = name
                     tvProfileUniversity.text = university
-                    tvRating.text = String.format("%.1f ★", rating)
                     
                     if (avatarUrl.isNotEmpty()) {
                         com.bumptech.glide.Glide.with(this)
@@ -130,13 +145,11 @@ class ProfileActivity : AppCompatActivity() {
                 } else {
                     tvProfileName.text = auth.currentUser?.email?.split("@")?.get(0) ?: "Kullanıcı"
                     tvProfileUniversity.text = "Üniversite belirtilmemiş"
-                    tvRating.text = "0.0 ★"
                 }
             }
             .addOnFailureListener {
                 tvProfileName.text = "Kullanıcı"
                 tvProfileUniversity.text = "Bilgi alınamadı"
-                tvRating.text = "0.0 ★"
             }
     }
 
@@ -148,5 +161,53 @@ class ProfileActivity : AppCompatActivity() {
             .addOnFailureListener {
                 tvActiveAdsCount.text = "0"
             }
+    }
+
+    private fun showUniversitySelector() {
+        val bottomSheetDialog = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.layout_university_bottom_sheet, null)
+
+        val etSearchUniversity = view.findViewById<EditText>(R.id.etSearchUniversity)
+        val rvUniversities = view.findViewById<RecyclerView>(R.id.rvUniversities)
+
+        rvUniversities.layoutManager = LinearLayoutManager(this)
+        
+        val adapter = UniversityAdapter(UniversityData.universities) { selectedUni ->
+            val currentUser = auth.currentUser
+            if (currentUser != null) {
+                db.collection("users").document(currentUser.uid).update("university", selectedUni)
+                    .addOnSuccessListener {
+                        Toast.makeText(this, "Üniversite güncellendi: $selectedUni", Toast.LENGTH_SHORT).show()
+                        tvProfileUniversity.text = selectedUni
+                    }
+            }
+            bottomSheetDialog.dismiss()
+        }
+        rvUniversities.adapter = adapter
+
+        etSearchUniversity.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val query = s?.toString()?.lowercase() ?: ""
+                val filteredList = UniversityData.universities.filter {
+                    it.lowercase().contains(query)
+                }
+                adapter.updateList(filteredList)
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        bottomSheetDialog.setContentView(view)
+        
+        bottomSheetDialog.setOnShowListener { dialog ->
+            val d = dialog as com.google.android.material.bottomsheet.BottomSheetDialog
+            val bottomSheet = d.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bottomSheet?.let {
+                val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
+                behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+            }
+        }
+
+        bottomSheetDialog.show()
     }
 }

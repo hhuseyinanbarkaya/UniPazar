@@ -37,36 +37,41 @@ class AdDetailActivity : AppCompatActivity() {
         // Images
         val ivMain = findViewById<ImageView>(R.id.ivDetailImageMain)
         val ivSecondary = findViewById<ImageView>(R.id.ivDetailImageSecondary)
-        val images = if (ad.imageUrls.isNotEmpty()) ad.imageUrls
-                     else listOf(ad.imageUrl).filter { it.isNotEmpty() }
-        if (images.isNotEmpty()) {
-            Glide.with(this).load(images[0]).transform(CenterCrop()).into(ivMain)
-            Glide.with(this).load(if (images.size >= 2) images[1] else images[0]).transform(CenterCrop()).into(ivSecondary)
-        } else {
-            ivMain.setImageResource(R.drawable.placeholder_image)
-            ivSecondary.setImageResource(R.drawable.placeholder_image)
+        val fallbackUrl = when (ad.category) {
+            "Kitap" -> "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop"
+            "Elektronik" -> "https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=800&auto=format&fit=crop"
+            "Ev Eşyası" -> "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?q=80&w=800&auto=format&fit=crop"
+            "Özel Ders" -> "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=800&auto=format&fit=crop"
+            "Diğer" -> "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=800&auto=format&fit=crop"
+            else -> "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=800&auto=format&fit=crop"
         }
 
+        val images = if (ad.imageUrls.isNotEmpty()) ad.imageUrls else listOf(ad.imageUrl).filter { it.isNotEmpty() }
+        
+        val firstImage = if (images.isNotEmpty()) images[0] else fallbackUrl
+        val secondImage = if (images.size >= 2) images[1] else firstImage
+        
+        Glide.with(this).load(firstImage).error(Glide.with(this).load(fallbackUrl)).transform(com.bumptech.glide.load.resource.bitmap.CenterCrop()).into(ivMain)
+        Glide.with(this).load(secondImage).error(Glide.with(this).load(fallbackUrl)).transform(com.bumptech.glide.load.resource.bitmap.CenterCrop()).into(ivSecondary)
+
         // Price
-        val priceText = ad.price.trim()
-        findViewById<TextView>(R.id.tvDetailPrice).text =
-            if (priceText.startsWith("\u20BA")) priceText else "\u20BA${priceText}"
+        val cleanPrice = ad.price.replace("\u20BA", "").trim()
+        findViewById<TextView>(R.id.tvDetailPrice).text = "\u20BA" + PriceFormatter.format(cleanPrice)
 
         // Title, category, timestamp, location, description, seller
         findViewById<TextView>(R.id.tvDetailTitle).text = ad.title
         findViewById<TextView>(R.id.tvDetailCategory).text = ad.category.uppercase()
         findViewById<TextView>(R.id.tvDetailTimestamp).text = TimeUtils.getTimeAgo(ad.timestamp) + " yuklendi"
-        findViewById<TextView>(R.id.tvDetailUniversity).text = ad.university
-        findViewById<TextView>(R.id.tvDetailLocationSub).text = "\u2022 Elden Teslim"
         findViewById<TextView>(R.id.tvDetailDescription).text =
             if (ad.description.isNotEmpty()) ad.description else "Aciklama eklenmemis."
         findViewById<TextView>(R.id.tvDetailSellerName).text = ad.sellerName
-        findViewById<TextView>(R.id.tvDetailContactInfo).text = ad.contactInfo
+        val ivDetailVerifiedBadge = findViewById<ImageView>(R.id.ivDetailVerifiedBadge)
+        ivDetailVerifiedBadge?.visibility = if (ad.isSellerVerified) View.VISIBLE else View.GONE
 
         val ivAvatar = findViewById<ImageView>(R.id.ivDetailSellerAvatar)
-        if (ad.sellerAvatarUrl.isNotEmpty()) {
-            Glide.with(this).load(ad.sellerAvatarUrl).circleCrop().into(ivAvatar)
-        }
+        val defaultAvatar = "https://ui-avatars.com/api/?name=${ad.sellerName.replace(" ", "+")}&background=random"
+        val avatarUrl = if (ad.sellerAvatarUrl.isNotEmpty()) ad.sellerAvatarUrl else defaultAvatar
+        Glide.with(this).load(avatarUrl).error(Glide.with(this).load(defaultAvatar)).circleCrop().into(ivAvatar)
 
         // Type badge
         val tvType = findViewById<TextView>(R.id.tvDetailType)
@@ -97,7 +102,6 @@ class AdDetailActivity : AppCompatActivity() {
         // Favorite
         var isFavorited = false
         val btnFavorite = findViewById<ImageView>(R.id.btnFavorite)
-        val btnBuy = findViewById<MaterialButton>(R.id.btnBuy)
 
         if (currentUser != null) {
             db.collection("users").document(currentUser.uid).get()
@@ -106,14 +110,11 @@ class AdDetailActivity : AppCompatActivity() {
                         val favs = doc.get("favoriteAds") as? List<String> ?: emptyList()
                         isFavorited = favs.contains(ad.id)
                         if (isFavorited) {
-                            btnFavorite.setColorFilter(android.graphics.Color.parseColor("#FF5400"))
+                            btnFavorite.setColorFilter(android.graphics.Color.parseColor("#EF4444")) // Kırmızı kalp
                         }
                         
+                        
                         val purchases = doc.get("purchasedAds") as? List<String> ?: emptyList()
-                        if (purchases.contains(ad.id)) {
-                            btnBuy.text = "Satın Alındı"
-                            btnBuy.isEnabled = false
-                        }
                     }
                 }
         }
@@ -126,8 +127,25 @@ class AdDetailActivity : AppCompatActivity() {
             isFavorited = !isFavorited
             val userRef = db.collection("users").document(currentUser.uid)
             if (isFavorited) {
-                btnFavorite.setColorFilter(android.graphics.Color.parseColor("#FF5400"))
+                btnFavorite.setColorFilter(android.graphics.Color.parseColor("#EF4444"))
                 userRef.update("favoriteAds", com.google.firebase.firestore.FieldValue.arrayUnion(ad.id))
+                
+                // Bildirim Gönder
+                if (ad.sellerUid.isNotEmpty() && ad.sellerUid != currentUser.uid) {
+                    val notifId = java.util.UUID.randomUUID().toString()
+                    val notif = Notification(
+                        id = notifId,
+                        receiverUid = ad.sellerUid,
+                        senderUid = currentUser.uid,
+                        senderName = currentUser.displayName ?: currentUser.email?.split("@")?.get(0) ?: "Bir kullanıcı",
+                        title = "İlanınız Favorilere Eklendi",
+                        message = "Bir kullanıcı '${ad.title}' başlıklı ilanınızı favorilerine ekledi.",
+                        type = "FAVORITE",
+                        relatedId = ad.id,
+                        timestamp = System.currentTimeMillis()
+                    )
+                    db.collection("users").document(ad.sellerUid).collection("notifications").document(notifId).set(notif)
+                }
                 Toast.makeText(this, "Favorilere eklendi", Toast.LENGTH_SHORT).show()
             } else {
                 btnFavorite.setColorFilter(android.graphics.Color.parseColor("#374151"))
@@ -136,91 +154,78 @@ class AdDetailActivity : AppCompatActivity() {
             }
         }
 
-        btnBuy.setOnClickListener {
+        val reportClickListener = View.OnClickListener {
             if (currentUser == null) {
-                Toast.makeText(this, "Satın almak için giriş yapın", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Şikayet etmek için giriş yapmalısınız", Toast.LENGTH_SHORT).show()
+                return@OnClickListener
+            }
+            showReportDialog(ad, currentUser.uid)
+        }
+        
+        findViewById<View>(R.id.btnReport)?.setOnClickListener(reportClickListener)
+        findViewById<View>(R.id.btnReportBottom)?.setOnClickListener(reportClickListener)
+
+        // Removed btnBuy listener
+
+        // Teklif Ver (Bottom Sheet Dialog)
+        findViewById<MaterialButton>(R.id.btnCall).setOnClickListener {
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
+                Toast.makeText(this, "Teklif vermek için giriş yapın", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             if (ad.sellerUid == currentUser.uid) {
-                Toast.makeText(this, "Kendi ilanınızı satın alamazsınız", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Kendi ilanınıza teklif veremezsiniz", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            val userRef = db.collection("users").document(currentUser.uid)
-            userRef.update("purchasedAds", com.google.firebase.firestore.FieldValue.arrayUnion(ad.id))
-            btnBuy.text = "Satın Alındı"
-            btnBuy.isEnabled = false
-            Toast.makeText(this, "İlan satın alınanlara eklendi!", Toast.LENGTH_SHORT).show()
-        }
-
-        // Teklif Ver (call)
-        val cleanNumber = ad.contactInfo.filter { it.isDigit() }
-        findViewById<MaterialButton>(R.id.btnCall).setOnClickListener {
-            if (cleanNumber.isNotEmpty()) {
-                startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$cleanNumber")))
-            } else {
-                Toast.makeText(this, "Iletisim bilgisi bulunamadi", Toast.LENGTH_SHORT).show()
-            }
+            showOfferDialog(ad, auth, db)
         }
 
         // Mesaj Gonder - in-app chat using sellerUid
         val btnMessage = findViewById<MaterialButton>(R.id.btnWhatsApp)
-
-        btnMessage.setOnClickListener {
-            val currentUser = auth.currentUser ?: run {
-                Toast.makeText(this, "Mesaj gondermek icin giris yapin", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            val currentUid = currentUser.uid
-            val currentName = currentUser.displayName
-                ?: currentUser.email?.split("@")?.get(0) ?: "Kullanici"
-
-            // Determine seller UID
-            val sellerId = ad.sellerUid
-
-            // Don't message yourself
-            if (sellerId == currentUid) {
-                Toast.makeText(this, "Kendi ilaniniza mesaj gonderemezsiniz", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            if (sellerId.isEmpty()) {
-                // Fallback: try finding seller by name in users collection
-                findSellerAndOpenChat(db, ad, currentUid, currentName)
-                return@setOnClickListener
-            }
-
-            // Check if conversation already exists for this ad between these two users
-            db.collection("conversations")
-                .whereArrayContains("participants", currentUid)
-                .whereEqualTo("adId", ad.id)
-                .limit(1)
-                .get()
-                .addOnSuccessListener { snapshot ->
-                    if (!snapshot.isEmpty) {
-                        // Existing conversation found
-                        val doc = snapshot.documents[0]
-                        val conv = doc.toObject(Conversation::class.java)?.copy(id = doc.id)
-                        if (conv != null) {
-                            startActivity(Intent(this, ChatActivity::class.java)
-                                .putExtra("CONVERSATION_ID", conv.id)
-                                .putExtra("CONVERSATION", conv))
-                        }
-                    } else {
-                        // Create new conversation
-                        createConversation(db, ad, currentUid, currentName, sellerId)
-                    }
-                }
-        }
-
-        // Owner vs Buyer actions
         val btnDeleteAd = findViewById<MaterialButton>(R.id.btnDeleteAd)
         val btnMarkSold = findViewById<MaterialButton>(R.id.btnMarkSold)
-        val btnRateSeller = findViewById<MaterialButton>(R.id.btnRateSeller)
+        val btnEditAd = findViewById<MaterialButton>(R.id.btnEditAd)
+        val llReportBlock = findViewById<android.widget.LinearLayout>(R.id.llReportBlock)
 
-        fun setupOwnerButtons() {
-            btnDeleteAd.visibility = View.VISIBLE
-            if (ad.status != "SOLD") {
-                btnMarkSold.visibility = View.VISIBLE
+        if (currentUser != null) {
+            if (ad.sellerUid == currentUser.uid) {
+                btnEditAd.visibility = View.VISIBLE
+                btnMarkSold.visibility = if (ad.status != "SOLD") View.VISIBLE else View.GONE
+                btnDeleteAd.visibility = View.VISIBLE
+                btnMessage.visibility = View.GONE
+                llReportBlock.visibility = View.GONE
+            } else {
+                btnEditAd.visibility = View.GONE
+                btnMarkSold.visibility = View.GONE
+                btnDeleteAd.visibility = View.GONE
+                btnMessage.visibility = View.VISIBLE
+                llReportBlock.visibility = View.VISIBLE
+            }
+
+            // --- Handle Clicks ---
+            findViewById<View>(R.id.btnBlockUser).setOnClickListener {
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("Kullanıcıyı Engelle")
+                    .setMessage("Bu kullanıcının ilanlarını ve mesajlarını artık görmeyeceksiniz. Emin misiniz?")
+                    .setPositiveButton("Engelle") { _, _ ->
+                        val userRef = db.collection("users").document(currentUser.uid)
+                        userRef.update("blockedUsers", com.google.firebase.firestore.FieldValue.arrayUnion(ad.sellerUid))
+                            .addOnSuccessListener {
+                                Toast.makeText(this, "Kullanıcı engellendi.", Toast.LENGTH_SHORT).show()
+                                finish()
+                            }
+                    }
+                    .setNegativeButton("İptal", null)
+                    .show()
+            }
+            
+            btnMessage.setOnClickListener {
+                openChatWithSeller(ad, auth, db, null)
+            }
+
+            btnEditAd.setOnClickListener {
+                startActivity(Intent(this, AddAdActivity::class.java).putExtra("EDIT_AD_ID", ad.id))
             }
             
             btnDeleteAd.setOnClickListener {
@@ -259,64 +264,94 @@ class AdDetailActivity : AppCompatActivity() {
             }
         }
 
-        fun setupBuyerButtons() {
-            btnRateSeller.visibility = View.VISIBLE
-            btnRateSeller.setOnClickListener {
-                showReviewDialog(ad.sellerUid)
-            }
-        }
 
-        if (currentUser != null) {
-            // Check by sellerUid first
-            if (ad.sellerUid == currentUser.uid) {
-                setupOwnerButtons()
-            } else {
-                setupBuyerButtons()
-            }
+    }
+    private fun parsePrice(priceStr: String): Double {
+        val clean = priceStr.replace("[^\\d,.]".toRegex(), "")
+        return if (clean.contains(",") && clean.contains(".")) {
+            clean.replace(".", "").replace(",", ".").toDoubleOrNull() ?: 0.0
+        } else if (clean.contains(",")) {
+            clean.replace(",", ".").toDoubleOrNull() ?: 0.0
+        } else {
+            clean.toDoubleOrNull() ?: 0.0
         }
     }
 
-    private fun showReviewDialog(sellerUid: String) {
-        if (sellerUid.isEmpty()) {
-            Toast.makeText(this, "Satıcı bulunamadı", Toast.LENGTH_SHORT).show()
-            return
-        }
+    private fun showOfferDialog(ad: Ad, auth: FirebaseAuth, db: FirebaseFirestore) {
         val bottomSheetDialog = com.google.android.material.bottomsheet.BottomSheetDialog(this)
-        val view = layoutInflater.inflate(R.layout.layout_dialog_review, null)
-        val ratingBar = view.findViewById<android.widget.RatingBar>(R.id.ratingBar)
-        val etReviewComment = view.findViewById<android.widget.EditText>(R.id.etReviewComment)
-        val btnSubmitReview = view.findViewById<MaterialButton>(R.id.btnSubmitReview)
+        val view = layoutInflater.inflate(R.layout.layout_dialog_offer, null)
+        
+        val etOfferPrice = view.findViewById<android.widget.EditText>(R.id.etOfferPrice)
+        val btnSubmitOffer = view.findViewById<MaterialButton>(R.id.btnSubmitOffer)
 
-        btnSubmitReview.setOnClickListener {
-            val rating = ratingBar.rating
-            val comment = etReviewComment.text.toString()
-
-            val db = FirebaseFirestore.getInstance()
-            val userRef = db.collection("users").document(sellerUid)
-
-            db.runTransaction { transaction ->
-                val snapshot = transaction.get(userRef)
-                val currentRating = snapshot.getDouble("rating") ?: 0.0
-                val currentCount = snapshot.getLong("reviewCount") ?: 0L
-
-                val newCount = currentCount + 1
-                val newRating = ((currentRating * currentCount) + rating) / newCount
-
-                transaction.update(userRef, "rating", newRating)
-                transaction.update(userRef, "reviewCount", newCount)
-            }.addOnSuccessListener {
-                Toast.makeText(this, "Değerlendirmeniz için teşekkürler!", Toast.LENGTH_SHORT).show()
-                bottomSheetDialog.dismiss()
-            }.addOnFailureListener {
-                Toast.makeText(this, "Bir hata oluştu", Toast.LENGTH_SHORT).show()
+        btnSubmitOffer.setOnClickListener {
+            val priceStr = etOfferPrice.text.toString().trim()
+            if (priceStr.isEmpty()) {
+                Toast.makeText(this, "Lütfen bir teklif tutarı girin", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
+
+            val offerPriceDouble = priceStr.replace(",", ".").toDoubleOrNull() ?: 0.0
+            val adPriceDouble = parsePrice(ad.price)
+
+            if (adPriceDouble > 0 && offerPriceDouble >= adPriceDouble) {
+                Toast.makeText(this, "Teklifiniz ürün fiyatından düşük olmalıdır!", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            
+            val message = "Merhaba, ilanınız için teklifim: ₺$priceStr"
+            openChatWithSeller(ad, auth, db, message)
+            bottomSheetDialog.dismiss()
         }
 
         bottomSheetDialog.setContentView(view)
         bottomSheetDialog.show()
     }
 
-    private fun findSellerAndOpenChat(db: FirebaseFirestore, ad: Ad, currentUid: String, currentName: String) {
+    private fun openChatWithSeller(ad: Ad, auth: FirebaseAuth, db: FirebaseFirestore, prefillMessage: String?) {
+        val currentUser = auth.currentUser ?: run {
+            Toast.makeText(this, "Mesaj göndermek için giriş yapın", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val currentUid = currentUser.uid
+        val currentName = currentUser.displayName ?: currentUser.email?.split("@")?.get(0) ?: "Kullanici"
+        val sellerId = ad.sellerUid
+
+        if (sellerId == currentUid) {
+            Toast.makeText(this, "Kendi ilanınıza mesaj gönderemezsiniz", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (sellerId.isEmpty()) {
+            findSellerAndOpenChat(db, ad, currentUid, currentName, prefillMessage)
+            return
+        }
+
+        db.collection("conversations")
+            .whereArrayContains("participants", currentUid)
+            .whereEqualTo("adId", ad.id)
+            .limit(1)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (!snapshot.isEmpty) {
+                    val doc = snapshot.documents[0]
+                    val conv = doc.toObject(Conversation::class.java)?.copy(id = doc.id)
+                    if (conv != null) {
+                        val intent = Intent(this, ChatActivity::class.java)
+                            .putExtra("CONVERSATION_ID", conv.id)
+                            .putExtra("CONVERSATION", conv)
+                        if (prefillMessage != null) {
+                            intent.putExtra("PREFILL_MESSAGE", prefillMessage)
+                        }
+                        startActivity(intent)
+                    }
+                } else {
+                    createConversation(db, ad, currentUid, currentName, sellerId, prefillMessage)
+                }
+            }
+    }
+
+    private fun findSellerAndOpenChat(db: FirebaseFirestore, ad: Ad, currentUid: String, currentName: String, prefillMessage: String?) {
         // Fallback: try by name, then by email prefix
         db.collection("users").whereEqualTo("name", ad.sellerName).limit(1).get()
             .addOnSuccessListener { userSnap ->
@@ -324,7 +359,7 @@ class AdDetailActivity : AppCompatActivity() {
                 if (sellerDoc != null) {
                     val sellerId = sellerDoc.id
                     if (sellerId == currentUid) {
-                        Toast.makeText(this, "Kendi ilaniniza mesaj gonderemezsiniz", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Kendi ilanınıza mesaj gönderemezsiniz", Toast.LENGTH_SHORT).show()
                         return@addOnSuccessListener
                     }
                     // Check existing conversation first
@@ -338,12 +373,16 @@ class AdDetailActivity : AppCompatActivity() {
                                 val doc = snapshot.documents[0]
                                 val conv = doc.toObject(Conversation::class.java)?.copy(id = doc.id)
                                 if (conv != null) {
-                                    startActivity(Intent(this, ChatActivity::class.java)
+                                    val intent = Intent(this, ChatActivity::class.java)
                                         .putExtra("CONVERSATION_ID", conv.id)
-                                        .putExtra("CONVERSATION", conv))
+                                        .putExtra("CONVERSATION", conv)
+                                    if (prefillMessage != null) {
+                                        intent.putExtra("PREFILL_MESSAGE", prefillMessage)
+                                    }
+                                    startActivity(intent)
                                 }
                             } else {
-                                createConversation(db, ad, currentUid, currentName, sellerId)
+                                createConversation(db, ad, currentUid, currentName, sellerId, prefillMessage)
                             }
                         }
                 } else {
@@ -352,7 +391,7 @@ class AdDetailActivity : AppCompatActivity() {
             }
     }
 
-    private fun createConversation(db: FirebaseFirestore, ad: Ad, currentUid: String, currentName: String, sellerId: String) {
+    private fun createConversation(db: FirebaseFirestore, ad: Ad, currentUid: String, currentName: String, sellerId: String, prefillMessage: String?) {
         val convData = hashMapOf(
             "participants" to listOf(currentUid, sellerId),
             "participantNames" to mapOf(currentUid to currentName, sellerId to ad.sellerName),
@@ -375,12 +414,45 @@ class AdDetailActivity : AppCompatActivity() {
                     adId = ad.id, adTitle = ad.title, adImageUrl = ad.imageUrl,
                     lastMessageTime = System.currentTimeMillis()
                 )
-                startActivity(Intent(this, ChatActivity::class.java)
+                val intent = Intent(this, ChatActivity::class.java)
                     .putExtra("CONVERSATION_ID", docRef.id)
-                    .putExtra("CONVERSATION", newConv))
+                    .putExtra("CONVERSATION", newConv)
+                if (prefillMessage != null) {
+                    intent.putExtra("PREFILL_MESSAGE", prefillMessage)
+                }
+                startActivity(intent)
             }
             .addOnFailureListener { e ->
                 Toast.makeText(this, "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+    }
+
+    private fun showReportDialog(ad: Ad, currentUid: String) {
+        val reasons = arrayOf("Sahte İlan", "Yanlış Kategori", "Uygunsuz İçerik", "Diğer")
+        var selectedReason = reasons[0]
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("İlanı Şikayet Et")
+            .setSingleChoiceItems(reasons, 0) { _, which ->
+                selectedReason = reasons[which]
+            }
+            .setPositiveButton("Şikayet Et") { _, _ ->
+                val reportData = hashMapOf(
+                    "adId" to ad.id,
+                    "adTitle" to ad.title,
+                    "reporterUid" to currentUid,
+                    "reason" to selectedReason,
+                    "timestamp" to System.currentTimeMillis()
+                )
+                FirebaseFirestore.getInstance().collection("reports").add(reportData)
+                    .addOnSuccessListener {
+                        Toast.makeText(this, "Şikayetiniz alındı, teşekkürler.", Toast.LENGTH_SHORT).show()
+                    }
+                    .addOnFailureListener {
+                        Toast.makeText(this, "Bir hata oluştu.", Toast.LENGTH_SHORT).show()
+                    }
+            }
+            .setNegativeButton("İptal", null)
+            .show()
     }
 }
