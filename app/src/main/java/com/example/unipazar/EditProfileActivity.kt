@@ -123,24 +123,32 @@ class EditProfileActivity : AppCompatActivity() {
         btnSaveProfile.isEnabled = false
 
         if (avatarUri != null) {
-            val ref = storage.reference.child("avatars/$uid.jpg")
-            
-            // Compress Image
-            val bmp = android.provider.MediaStore.Images.Media.getBitmap(contentResolver, avatarUri)
-            val baos = java.io.ByteArrayOutputStream()
-            bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, baos)
-            val data = baos.toByteArray()
-            
-            ref.putBytes(data)
-                .addOnSuccessListener {
-                    ref.downloadUrl.addOnSuccessListener { uri ->
-                        saveToFirestore(uid, email, name, phone, bio, uri.toString())
-                    }
+            try {
+                // Compress Image and encode to Base64
+                val bmp = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    val source = android.graphics.ImageDecoder.createSource(contentResolver, avatarUri!!)
+                    android.graphics.ImageDecoder.decodeBitmap(source)
+                } else {
+                    android.provider.MediaStore.Images.Media.getBitmap(contentResolver, avatarUri)
                 }
-                .addOnFailureListener { e ->
-                    // If image upload fails (e.g. storage quota), just proceed with old avatar so app doesn't break
-                    saveToFirestore(uid, email, name, phone, bio, currentAvatarUrl)
-                }
+                
+                // Scale down heavily for Base64 (max 400px width)
+                val ratio = 400.0f / bmp.width
+                val height = (bmp.height * ratio).toInt()
+                val scaledBmp = android.graphics.Bitmap.createScaledBitmap(bmp, 400, height, true)
+                
+                val baos = java.io.ByteArrayOutputStream()
+                scaledBmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 60, baos)
+                val data = baos.toByteArray()
+                
+                // Create Base64 URI string for Glide
+                val base64Image = "data:image/jpeg;base64," + android.util.Base64.encodeToString(data, android.util.Base64.DEFAULT).replace("\n", "")
+                
+                saveToFirestore(uid, email, name, phone, bio, base64Image)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                saveToFirestore(uid, email, name, phone, bio, currentAvatarUrl)
+            }
         } else {
             saveToFirestore(uid, email, name, phone, bio, currentAvatarUrl)
         }

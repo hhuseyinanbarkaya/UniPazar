@@ -231,9 +231,6 @@ class AddAdActivity : AppCompatActivity() {
             if (selectedImages.isNotEmpty()) {
                 var uploadedCount = 0
                 for (uri in selectedImages) {
-                    val ref = storage.reference.child("ad_images/${adId}_${UUID.randomUUID()}.jpg")
-                    
-                    // Compress Image safely
                     try {
                         val bmp = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
                             val source = android.graphics.ImageDecoder.createSource(contentResolver, uri)
@@ -241,50 +238,29 @@ class AddAdActivity : AppCompatActivity() {
                         } else {
                             android.provider.MediaStore.Images.Media.getBitmap(contentResolver, uri)
                         }
+                        
+                        // Scale down heavily for Base64 (max 600px width) to fit in Firestore 1MB limit
+                        val ratio = 600.0f / bmp.width
+                        val height = (bmp.height * ratio).toInt()
+                        val scaledBmp = android.graphics.Bitmap.createScaledBitmap(bmp, 600, height, true)
+                        
                         val baos = java.io.ByteArrayOutputStream()
-                        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, baos)
+                        scaledBmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 60, baos)
                         val data = baos.toByteArray()
                         
-                        ref.putBytes(data).addOnSuccessListener { taskSnapshot ->
-                            ref.downloadUrl.addOnSuccessListener { downloadUri ->
-                                imageUrls.add(downloadUri.toString())
-                                uploadedCount++
-                                if (uploadedCount == selectedImages.size) {
-                                    saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
-                                }
-                            }.addOnFailureListener {
-                                uploadedCount++
-                                if (uploadedCount == selectedImages.size) {
-                                    saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
-                                }
-                            }
-                        }.addOnFailureListener {
-                            uploadedCount++
-                            if (uploadedCount == selectedImages.size) {
-                                saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
-                            }
+                        // Create Base64 URI string for Glide to load
+                        val base64Image = "data:image/jpeg;base64," + android.util.Base64.encodeToString(data, android.util.Base64.DEFAULT).replace("\n", "")
+                        
+                        imageUrls.add(base64Image)
+                        uploadedCount++
+                        if (uploadedCount == selectedImages.size) {
+                            saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
-                        // Fallback to original file
-                        ref.putFile(uri).addOnSuccessListener { taskSnapshot ->
-                            ref.downloadUrl.addOnSuccessListener { downloadUri ->
-                                imageUrls.add(downloadUri.toString())
-                                uploadedCount++
-                                if (uploadedCount == selectedImages.size) {
-                                    saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
-                                }
-                            }.addOnFailureListener {
-                                uploadedCount++
-                                if (uploadedCount == selectedImages.size) {
-                                    saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
-                                }
-                            }
-                        }.addOnFailureListener {
-                            uploadedCount++
-                            if (uploadedCount == selectedImages.size) {
-                                saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
-                            }
+                        uploadedCount++
+                        if (uploadedCount == selectedImages.size) {
+                            saveAdToFirestore(adId, title, description, price, if (isSaleType) "SALE" else "WANTED", university, category, imageUrls, "")
                         }
                     }
                 }
